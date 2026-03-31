@@ -1,50 +1,34 @@
 /* ============================================================
-   Proprush Developers — Main JavaScript
-   Features: Nav scroll, scroll animations, counter, slider,
-             project tabs, form handling, back-to-top
+   PROPRUSH DEVELOPERS — script.js
+   Key fix: testimonials use proper per-view card width
+            so text always wraps and is never cut off
 ============================================================ */
-
 'use strict';
 
 // ============================================================
-// NAVBAR SCROLL BEHAVIOR
+// NAVBAR SCROLL
 // ============================================================
 const navbar = document.getElementById('navbar');
-const navLinks = document.querySelectorAll('.nav-link');
 
-function handleNavScroll() {
-  if (window.scrollY > 60) {
-    navbar.classList.add('scrolled');
-  } else {
-    navbar.classList.remove('scrolled');
-  }
+window.addEventListener('scroll', () => {
+  navbar.classList.toggle('scrolled', window.scrollY > 60);
 
-  // Active nav link based on scroll position
+  // Active link tracking
   const sections = document.querySelectorAll('section[id]');
-  let currentSection = '';
-
-  sections.forEach(section => {
-    const sectionTop = section.offsetTop - 120;
-    if (window.scrollY >= sectionTop) {
-      currentSection = section.getAttribute('id');
-    }
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 130) current = s.id;
   });
-
-  navLinks.forEach(link => {
-    link.classList.remove('active');
-    if (link.getAttribute('href') === `#${currentSection}`) {
-      link.classList.add('active');
-    }
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.classList.toggle('active', link.getAttribute('href') === `#${current}`);
   });
-}
-
-window.addEventListener('scroll', handleNavScroll, { passive: true });
+}, { passive: true });
 
 // ============================================================
-// HAMBURGER MENU
+// HAMBURGER
 // ============================================================
 const hamburger = document.getElementById('hamburger');
-const navMenu = document.getElementById('navMenu');
+const navMenu   = document.getElementById('navMenu');
 
 hamburger.addEventListener('click', () => {
   hamburger.classList.toggle('open');
@@ -52,7 +36,6 @@ hamburger.addEventListener('click', () => {
   document.body.style.overflow = navMenu.classList.contains('open') ? 'hidden' : '';
 });
 
-// Close menu on link click
 navMenu.querySelectorAll('.nav-link').forEach(link => {
   link.addEventListener('click', () => {
     hamburger.classList.remove('open');
@@ -61,383 +44,313 @@ navMenu.querySelectorAll('.nav-link').forEach(link => {
   });
 });
 
-// ============================================================
-// SCROLL REVEAL ANIMATION
-// ============================================================
-const revealElements = document.querySelectorAll('.reveal-up, .reveal-left, .reveal-right');
-
-const revealObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-      // Unobserve after animating to save resources
-      revealObserver.unobserve(entry.target);
-    }
-  });
-}, {
-  threshold: 0.12,
-  rootMargin: '0px 0px -60px 0px'
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && navMenu.classList.contains('open')) {
+    hamburger.classList.remove('open');
+    navMenu.classList.remove('open');
+    document.body.style.overflow = '';
+  }
 });
 
-revealElements.forEach(el => revealObserver.observe(el));
-
 // ============================================================
-// ANIMATED COUNTER
+// SCROLL REVEAL
 // ============================================================
-const statNums = document.querySelectorAll('.stat-num');
-let countersStarted = false;
-
-function animateCounter(el) {
-  const target = parseInt(el.dataset.target);
-  const duration = 1800;
-  const step = target / (duration / 16);
-  let current = 0;
-
-  const timer = setInterval(() => {
-    current += step;
-    if (current >= target) {
-      current = target;
-      clearInterval(timer);
-    }
-    el.textContent = Math.floor(current);
-  }, 16);
-}
-
-const heroObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting && !countersStarted) {
-      countersStarted = true;
-      statNums.forEach(el => animateCounter(el));
+const revealEls = document.querySelectorAll('.reveal-up,.reveal-left,.reveal-right');
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      revealObs.unobserve(e.target);
     }
   });
-}, { threshold: 0.3 });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+revealEls.forEach(el => revealObs.observe(el));
 
-const heroStats = document.querySelector('.hero-stats');
-if (heroStats) heroObserver.observe(heroStats);
+// ============================================================
+// COUNTER — easeOutCubic, no jitter
+// ============================================================
+let countersRun = false;
+
+function runCounters() {
+  if (countersRun) return;
+  countersRun = true;
+  document.querySelectorAll('.stat-num').forEach(el => {
+    const target = parseInt(el.dataset.target, 10);
+    const totalTime = 1600;
+    const fps = 60;
+    const steps = Math.round(totalTime / (1000 / fps));
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      const p = step / steps;
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      el.textContent = Math.round(eased * target);
+      if (step >= steps) {
+        el.textContent = target;
+        clearInterval(timer);
+      }
+    }, 1000 / fps);
+  });
+}
+
+const statsEl = document.querySelector('.hero-stats');
+if (statsEl) {
+  new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { runCounters(); }
+  }, { threshold: 0.4 }).observe(statsEl);
+}
 
 // ============================================================
 // PROJECT TABS
 // ============================================================
-const tabBtns = document.querySelectorAll('.tab-btn');
-const tabContents = document.querySelectorAll('.tab-content');
-
-tabBtns.forEach(btn => {
+document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    const targetTab = btn.dataset.tab;
-
-    // Update buttons
-    tabBtns.forEach(b => b.classList.remove('active'));
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-
-    // Update content panels
-    tabContents.forEach(content => {
-      content.classList.remove('active');
-      if (content.id === `tab-${targetTab}`) {
-        content.classList.add('active');
-        // Re-trigger reveal animations for newly shown cards
-        content.querySelectorAll('.reveal-up').forEach(el => {
-          el.classList.remove('visible');
-          setTimeout(() => {
-            revealObserver.observe(el);
-          }, 50);
-        });
-      }
+    document.querySelectorAll('.tab-content').forEach(c => {
+      c.classList.toggle('active', c.id === `tab-${tab}`);
+    });
+    document.querySelectorAll(`#tab-${tab} .reveal-up`).forEach(el => {
+      el.classList.remove('visible');
+      setTimeout(() => revealObs.observe(el), 50);
     });
   });
 });
 
 // ============================================================
 // TESTIMONIALS SLIDER
+// Key fixes:
+//  1. Card width = (sliderWidth - gaps) / perView  → measured from DOM
+//  2. overflow:hidden on .testimonials-slider (CSS)
+//  3. translate by exact (cardWidth + gap) per step
 // ============================================================
-const track = document.getElementById('testimonialTrack');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
-const dotsContainer = document.getElementById('sliderDots');
+const sliderEl   = document.querySelector('.testimonials-slider');
+const trackEl    = document.getElementById('testimonialTrack') || document.getElementById('testiTrack');
+const dotsWrap   = document.getElementById('sliderDots')       || document.getElementById('testiDots');
+const prevBtnEl  = document.getElementById('prevBtn')          || document.getElementById('testiPrev');
+const nextBtnEl  = document.getElementById('nextBtn')          || document.getElementById('testiNext');
 
-let currentSlide = 0;
-let slidesPerView = getSlidesPerView();
-let totalSlides;
+let cur = 0;
+let perView = 3;
 let dots = [];
-let autoSlideTimer;
+let total = 0;
+let autoT;
+const GAP = 20; // must match CSS gap on .testimonials-track
 
-function getSlidesPerView() {
-  if (window.innerWidth <= 768) return 1;
+function getPerView() {
+  if (window.innerWidth <= 768)  return 1;
   if (window.innerWidth <= 1024) return 2;
   return 3;
 }
 
-function initSlider() {
-  const cards = track.querySelectorAll('.testimonial-card');
-  slidesPerView = getSlidesPerView();
-  totalSlides = Math.max(0, cards.length - slidesPerView);
+function buildSlider() {
+  if (!trackEl || !sliderEl) return;
 
-  // Set card widths
-  cards.forEach(card => {
-    card.style.minWidth = `calc(${100 / slidesPerView}% - ${(slidesPerView - 1) * 24 / slidesPerView}px)`;
+  const cards = trackEl.querySelectorAll('.testimonial-card');
+  if (!cards.length) return;
+
+  perView = getPerView();
+  total   = Math.max(0, cards.length - perView);
+
+  // Measure the slider container's inner width
+  const sliderWidth = sliderEl.offsetWidth;
+
+  // Card width = (sliderWidth - gaps between visible cards) / perView
+  const totalGap = GAP * (perView - 1);
+  const cardW    = Math.floor((sliderWidth - totalGap) / perView);
+
+  // Apply width to every card
+  cards.forEach(c => {
+    c.style.width    = `${cardW}px`;
+    c.style.minWidth = `${cardW}px`;
+    c.style.maxWidth = `${cardW}px`;
   });
 
-  // Build dots
-  dotsContainer.innerHTML = '';
-  dots = [];
-  for (let i = 0; i <= totalSlides; i++) {
-    const dot = document.createElement('div');
-    dot.className = 'slider-dot';
-    if (i === 0) dot.classList.add('active');
-    dot.addEventListener('click', () => goToSlide(i));
-    dotsContainer.appendChild(dot);
-    dots.push(dot);
+  // Rebuild dots
+  if (dotsWrap) {
+    dotsWrap.innerHTML = '';
+    dots = [];
+    for (let i = 0; i <= total; i++) {
+      const d = document.createElement('div');
+      d.className = `slider-dot${i === 0 ? ' active' : ''}`;
+      d.addEventListener('click', () => { slideTo(i); resetAuto(); });
+      dotsWrap.appendChild(d);
+      dots.push(d);
+    }
   }
 
-  goToSlide(0);
+  slideTo(Math.min(cur, total));
 }
 
-function goToSlide(index) {
-  currentSlide = Math.max(0, Math.min(index, totalSlides));
-  const cardWidth = track.querySelector('.testimonial-card')?.offsetWidth || 0;
-  const gap = 24;
-  track.style.transform = `translateX(-${currentSlide * (cardWidth + gap)}px)`;
+function slideTo(i) {
+  if (!trackEl) return;
+  cur = Math.max(0, Math.min(i, total));
+
+  const cards  = trackEl.querySelectorAll('.testimonial-card');
+  if (!cards.length) return;
+  const cardW  = cards[0].offsetWidth;
+
+  trackEl.style.transform = `translateX(-${cur * (cardW + GAP)}px)`;
 
   // Update dots
-  dots.forEach((dot, i) => {
-    dot.classList.toggle('active', i === currentSlide);
-  });
+  dots.forEach((d, idx) => d.classList.toggle('active', idx === cur));
 
-  // Update buttons
-  prevBtn.style.opacity = currentSlide === 0 ? '0.4' : '1';
-  nextBtn.style.opacity = currentSlide === totalSlides ? '0.4' : '1';
+  // Dim arrow buttons at edges
+  if (prevBtnEl) prevBtnEl.style.opacity = cur === 0     ? '0.35' : '1';
+  if (nextBtnEl) nextBtnEl.style.opacity = cur >= total  ? '0.35' : '1';
 }
 
-prevBtn.addEventListener('click', () => {
-  goToSlide(currentSlide - 1);
-  resetAutoSlide();
+if (prevBtnEl) prevBtnEl.addEventListener('click', () => { slideTo(cur - 1); resetAuto(); });
+if (nextBtnEl) nextBtnEl.addEventListener('click', () => { slideTo(cur + 1); resetAuto(); });
+
+function startAuto() {
+  autoT = setInterval(() => slideTo(cur >= total ? 0 : cur + 1), 4500);
+}
+function resetAuto() { clearInterval(autoT); startAuto(); }
+
+// Touch swipe
+let touchX = 0;
+if (trackEl) {
+  trackEl.addEventListener('touchstart', e => { touchX = e.changedTouches[0].screenX; }, { passive: true });
+  trackEl.addEventListener('touchend',   e => {
+    const diff = touchX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 48) { slideTo(diff > 0 ? cur + 1 : cur - 1); resetAuto(); }
+  }, { passive: true });
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft')  { slideTo(cur - 1); resetAuto(); }
+  if (e.key === 'ArrowRight') { slideTo(cur + 1); resetAuto(); }
 });
 
-nextBtn.addEventListener('click', () => {
-  goToSlide(currentSlide + 1);
-  resetAutoSlide();
-});
-
-function startAutoSlide() {
-  autoSlideTimer = setInterval(() => {
-    if (currentSlide >= totalSlides) {
-      goToSlide(0);
-    } else {
-      goToSlide(currentSlide + 1);
-    }
-  }, 4500);
-}
-
-function resetAutoSlide() {
-  clearInterval(autoSlideTimer);
-  startAutoSlide();
-}
-
-// Handle resize
-let resizeTimeout;
+// Rebuild on resize (debounced)
+let resizeT;
 window.addEventListener('resize', () => {
-  clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(() => {
-    initSlider();
-  }, 250);
-});
-
-// Initialize
-initSlider();
-startAutoSlide();
-
-// Touch/Swipe support for mobile
-let touchStartX = 0;
-let touchEndX = 0;
-
-track.addEventListener('touchstart', e => {
-  touchStartX = e.changedTouches[0].screenX;
+  clearTimeout(resizeT);
+  resizeT = setTimeout(buildSlider, 220);
 }, { passive: true });
 
-track.addEventListener('touchend', e => {
-  touchEndX = e.changedTouches[0].screenX;
-  const diff = touchStartX - touchEndX;
-  if (Math.abs(diff) > 50) {
-    if (diff > 0) goToSlide(currentSlide + 1);
-    else goToSlide(currentSlide - 1);
-    resetAutoSlide();
-  }
-}, { passive: true });
+// Init after fonts load to get accurate measurements
+if (document.fonts) {
+  document.fonts.ready.then(buildSlider);
+} else {
+  window.addEventListener('load', buildSlider);
+}
+startAuto();
 
 // ============================================================
-// CONTACT FORM HANDLING
+// CONTACT FORM
 // ============================================================
-const contactForm = document.getElementById('contactForm');
-const formSuccess = document.getElementById('formSuccess');
-const submitText = document.getElementById('submitText');
-const submitLoader = document.getElementById('submitLoader');
+const formEl      = document.getElementById('contactForm');
+const successEl   = document.getElementById('formSuccess');
+const submitText  = document.getElementById('submitText');
+const submitLoad  = document.getElementById('submitLoader');
 
-contactForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
+if (formEl) {
+  formEl.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name  = document.getElementById('name')?.value.trim()  || '';
+    const phone = document.getElementById('phone')?.value.trim() || '';
 
-  // Validate
-  const name = document.getElementById('name').value.trim();
-  const phone = document.getElementById('phone').value.trim();
+    if (!name)             { flash('name',  'Please enter your name'); return; }
+    if (phone.length < 10) { flash('phone', 'Please enter a valid number'); return; }
 
-  if (!name) { showFieldError('name', 'Please enter your name'); return; }
-  if (!phone || phone.length < 10) { showFieldError('phone', 'Please enter a valid phone number'); return; }
+    // Show loader
+    if (submitText) submitText.style.display = 'none';
+    if (submitLoad) submitLoad.style.display = 'inline-flex';
 
-  // Show loader
-  submitText.style.display = 'none';
-  submitLoader.style.display = 'inline-flex';
+    await new Promise(r => setTimeout(r, 1800));
 
-  // Simulate form submission (UI demo)
-  await new Promise(resolve => setTimeout(resolve, 1800));
+    formEl.style.display   = 'none';
+    if (successEl) successEl.style.display = 'block';
+  });
+}
 
-  // Show success
-  contactForm.style.display = 'none';
-  formSuccess.style.display = 'block';
-  formSuccess.style.animation = 'fadeInUp 0.5s ease forwards';
-});
-
-function showFieldError(fieldId, message) {
-  const field = document.getElementById(fieldId);
-  field.style.borderColor = '#e05757';
-  field.focus();
-
-  // Remove error after user starts typing
-  field.addEventListener('input', function onInput() {
-    field.style.borderColor = '';
-    field.removeEventListener('input', onInput);
+function flash(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.borderColor = 'var(--error)';
+  el.focus();
+  el.addEventListener('input', function clear() {
+    el.style.borderColor = '';
+    el.removeEventListener('input', clear);
   });
 }
 
 // ============================================================
 // BACK TO TOP
 // ============================================================
-const backToTopBtn = document.getElementById('backToTop');
-
-window.addEventListener('scroll', () => {
-  if (window.scrollY > 400) {
-    backToTopBtn.classList.add('visible');
-  } else {
-    backToTopBtn.classList.remove('visible');
-  }
-}, { passive: true });
-
-backToTopBtn.addEventListener('click', () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-});
+const backTopBtn = document.getElementById('backToTop');
+if (backTopBtn) {
+  window.addEventListener('scroll', () =>
+    backTopBtn.classList.toggle('visible', window.scrollY > 400),
+    { passive: true }
+  );
+  backTopBtn.addEventListener('click', () =>
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  );
+}
 
 // ============================================================
-// SMOOTH SCROLL FOR ANCHOR LINKS
+// SMOOTH ANCHOR SCROLL
 // ============================================================
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-  anchor.addEventListener('click', function (e) {
-    const targetId = this.getAttribute('href');
-    if (targetId === '#') return;
-
-    const target = document.querySelector(targetId);
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    if (id === '#') return;
+    const target = document.querySelector(id);
     if (target) {
       e.preventDefault();
-      const navHeight = navbar.offsetHeight;
-      const targetPosition = target.offsetTop - navHeight - 20;
-      window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+      window.scrollTo({
+        top: target.offsetTop - navbar.offsetHeight - 16,
+        behavior: 'smooth'
+      });
     }
   });
 });
 
 // ============================================================
-// GALLERY LIGHTBOX (Simple)
+// GALLERY TILES — click to enlarge
 // ============================================================
-const galleryItems = document.querySelectorAll('.gallery-item');
-
-galleryItems.forEach(item => {
+document.querySelectorAll('.gallery-item').forEach(item => {
   item.addEventListener('click', () => {
-    const label = item.querySelector('.gallery-overlay span')?.textContent || 'Gallery Image';
-
-    // Create lightbox
+    const caption = item.querySelector('.gallery-overlay span')?.textContent || 'Gallery Image';
     const overlay = document.createElement('div');
     overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.92);
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; animation: fadeIn 0.3s ease;
+      position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.9);
+      display:flex;align-items:center;justify-content:center;cursor:pointer;
     `;
-
     overlay.innerHTML = `
-      <div style="text-align: center; padding: 24px; max-width: 800px; width: 100%;">
+      <div style="text-align:center;padding:24px;max-width:80vw">
         <div style="
-          width: 100%; aspect-ratio: 16/9; background: var(--color-dark-3);
-          border: 1px solid rgba(201,168,76,0.2); border-radius: 12px;
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
-          gap: 16px; color: rgba(255,255,255,0.4); font-size: 1rem;
-          background: ${getComputedStyle(item).background};
+          padding:48px 32px;border-radius:12px;
+          background:var(--dk3);border:1px solid rgba(201,168,76,.2);
+          font-family:'Jost',sans-serif;color:rgba(205,228,234,.5);
         ">
-          <i class="fas fa-image" style="font-size: 3rem; color: rgba(201,168,76,0.3);"></i>
-          <p style="font-family: 'Jost', sans-serif;">${label}</p>
-          <p style="font-size: 0.78rem; opacity: 0.5;">Image placeholder — add your project photos here</p>
+          <i class="fas fa-image" style="font-size:3rem;color:rgba(201,168,76,.3);display:block;margin-bottom:14px;"></i>
+          <p style="font-size:.95rem;margin-bottom:8px;color:rgba(205,228,234,.7);">${caption}</p>
+          <p style="font-size:.75rem;opacity:.5;">Replace with your actual project photo</p>
         </div>
-        <p style="
-          margin-top: 16px; font-family: 'Jost', sans-serif;
-          font-size: 0.9rem; color: rgba(255,255,255,0.5);
-        ">Click anywhere to close</p>
+        <p style="margin-top:14px;font-size:.82rem;font-family:'Jost',sans-serif;color:rgba(255,255,255,.4);">Click anywhere to close</p>
       </div>
     `;
-
     overlay.addEventListener('click', () => overlay.remove());
     document.body.appendChild(overlay);
   });
 });
 
 // ============================================================
-// NUMBER FORMAT UTILITY
-// ============================================================
-function formatIndianNumber(num) {
-  return num.toLocaleString('en-IN');
-}
-
-// ============================================================
-// PAGE LOAD ANIMATION
+// PAGE LOAD — trigger hero reveals
 // ============================================================
 window.addEventListener('load', () => {
-  document.body.classList.add('loaded');
-
-  // Animate hero elements
-  const heroElements = document.querySelectorAll('.hero .reveal-up');
-  heroElements.forEach((el, i) => {
-    setTimeout(() => {
-      el.classList.add('visible');
-    }, 200 + i * 150);
+  document.querySelectorAll('.hero .reveal-up').forEach((el, i) => {
+    setTimeout(() => el.classList.add('visible'), 200 + i * 140);
   });
-});
-
-// ============================================================
-// LAZY LOAD PLACEHOLDER GRADIENTS (Performance)
-// ============================================================
-const placeholders = document.querySelectorAll('[class*="img-placeholder"]');
-
-const lazyObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('loaded');
-      lazyObserver.unobserve(entry.target);
-    }
-  });
-}, { rootMargin: '200px' });
-
-placeholders.forEach(el => lazyObserver.observe(el));
-
-// ============================================================
-// KEYBOARD ACCESSIBILITY
-// ============================================================
-document.addEventListener('keydown', (e) => {
-  // Close mobile menu on Escape
-  if (e.key === 'Escape' && navMenu.classList.contains('open')) {
-    hamburger.classList.remove('open');
-    navMenu.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
-  // Slider keyboard control
-  if (e.key === 'ArrowLeft') goToSlide(currentSlide - 1);
-  if (e.key === 'ArrowRight') goToSlide(currentSlide + 1);
 });
 
 console.log(
   '%cProprush Developers 🏡 — Building Dreams with Trust',
-  'color: #c9a84c; font-size: 14px; font-weight: bold; font-family: serif;'
+  'color:#c9a84c;font-size:13px;font-weight:bold;font-family:serif;'
 );
