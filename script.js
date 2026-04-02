@@ -2,6 +2,7 @@
    PROPRUSH DEVELOPERS — script.js
    Key fix: testimonials use proper per-view card width
             so text always wraps and is never cut off
+   Contact form: submits to WhatsApp +91 98456 88345
 ============================================================ */
 'use strict';
 
@@ -120,10 +121,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // ============================================================
 // TESTIMONIALS SLIDER
-// Key fixes:
-//  1. Card width = (sliderWidth - gaps) / perView  → measured from DOM
-//  2. overflow:hidden on .testimonials-slider (CSS)
-//  3. translate by exact (cardWidth + gap) per step
 // ============================================================
 const sliderEl   = document.querySelector('.testimonials-slider');
 const trackEl    = document.getElementById('testimonialTrack') || document.getElementById('testiTrack');
@@ -136,7 +133,7 @@ let perView = 3;
 let dots = [];
 let total = 0;
 let autoT;
-const GAP = 20; // must match CSS gap on .testimonials-track
+const GAP = 20;
 
 function getPerView() {
   if (window.innerWidth <= 768)  return 1;
@@ -153,21 +150,16 @@ function buildSlider() {
   perView = getPerView();
   total   = Math.max(0, cards.length - perView);
 
-  // Measure the slider container's inner width
   const sliderWidth = sliderEl.offsetWidth;
-
-  // Card width = (sliderWidth - gaps between visible cards) / perView
   const totalGap = GAP * (perView - 1);
   const cardW    = Math.floor((sliderWidth - totalGap) / perView);
 
-  // Apply width to every card
   cards.forEach(c => {
     c.style.width    = `${cardW}px`;
     c.style.minWidth = `${cardW}px`;
     c.style.maxWidth = `${cardW}px`;
   });
 
-  // Rebuild dots
   if (dotsWrap) {
     dotsWrap.innerHTML = '';
     dots = [];
@@ -193,10 +185,8 @@ function slideTo(i) {
 
   trackEl.style.transform = `translateX(-${cur * (cardW + GAP)}px)`;
 
-  // Update dots
   dots.forEach((d, idx) => d.classList.toggle('active', idx === cur));
 
-  // Dim arrow buttons at edges
   if (prevBtnEl) prevBtnEl.style.opacity = cur === 0     ? '0.35' : '1';
   if (nextBtnEl) nextBtnEl.style.opacity = cur >= total  ? '0.35' : '1';
 }
@@ -209,7 +199,6 @@ function startAuto() {
 }
 function resetAuto() { clearInterval(autoT); startAuto(); }
 
-// Touch swipe
 let touchX = 0;
 if (trackEl) {
   trackEl.addEventListener('touchstart', e => { touchX = e.changedTouches[0].screenX; }, { passive: true });
@@ -219,20 +208,17 @@ if (trackEl) {
   }, { passive: true });
 }
 
-// Keyboard
 document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft')  { slideTo(cur - 1); resetAuto(); }
   if (e.key === 'ArrowRight') { slideTo(cur + 1); resetAuto(); }
 });
 
-// Rebuild on resize (debounced)
 let resizeT;
 window.addEventListener('resize', () => {
   clearTimeout(resizeT);
   resizeT = setTimeout(buildSlider, 220);
 }, { passive: true });
 
-// Init after fonts load to get accurate measurements
 if (document.fonts) {
   document.fonts.ready.then(buildSlider);
 } else {
@@ -241,8 +227,10 @@ if (document.fonts) {
 startAuto();
 
 // ============================================================
-// CONTACT FORM
+// CONTACT FORM — sends enquiry to WhatsApp +91 98456 88345
 // ============================================================
+const WHATSAPP_NUMBER = '919845688345';
+
 const formEl      = document.getElementById('contactForm');
 const successEl   = document.getElementById('formSuccess');
 const submitText  = document.getElementById('submitText');
@@ -251,20 +239,47 @@ const submitLoad  = document.getElementById('submitLoader');
 if (formEl) {
   formEl.addEventListener('submit', async e => {
     e.preventDefault();
-    const name  = document.getElementById('name')?.value.trim()  || '';
-    const phone = document.getElementById('phone')?.value.trim() || '';
 
+    const name     = document.getElementById('name')?.value.trim()  || '';
+    const phone    = document.getElementById('phone')?.value.trim() || '';
+    const email    = document.getElementById('email')?.value.trim() || 'Not provided';
+    const budget   = document.getElementById('budget')?.value       || 'Not specified';
+    const location = document.getElementById('location')?.value     || 'Not specified';
+    const message  = document.getElementById('message')?.value.trim() || 'No message';
+
+    // Validation
     if (!name)             { flash('name',  'Please enter your name'); return; }
-    if (phone.length < 10) { flash('phone', 'Please enter a valid number'); return; }
+    if (phone.length < 10) { flash('phone', 'Please enter a valid 10-digit number'); return; }
 
     // Show loader
     if (submitText) submitText.style.display = 'none';
     if (submitLoad) submitLoad.style.display = 'inline-flex';
 
-    await new Promise(r => setTimeout(r, 1800));
+    // Small delay for UX
+    await new Promise(r => setTimeout(r, 1200));
 
-    formEl.style.display   = 'none';
+    // Build WhatsApp message
+    const waText = [
+      `🏡 *New Plot Enquiry — Proprush Developers*`,
+      ``,
+      `👤 *Name:* ${name}`,
+      `📞 *Phone:* ${phone}`,
+      `📧 *Email:* ${email}`,
+      `💰 *Budget:* ${budget}`,
+      `📍 *Preferred Location:* ${location}`,
+      `💬 *Message:* ${message}`,
+      ``,
+      `_Sent from proprushdevelopers.in_`
+    ].join('\n');
+
+    const waURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
+
+    // Show success message
+    formEl.style.display = 'none';
     if (successEl) successEl.style.display = 'block';
+
+    // Open WhatsApp
+    window.open(waURL, '_blank');
   });
 }
 
@@ -273,6 +288,7 @@ function flash(id, msg) {
   if (!el) return;
   el.style.borderColor = 'var(--error)';
   el.focus();
+  el.setAttribute('placeholder', msg);
   el.addEventListener('input', function clear() {
     el.style.borderColor = '';
     el.removeEventListener('input', clear);
